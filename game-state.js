@@ -69,13 +69,49 @@ function defaultGameState() {
     timer: missionTime,
     lastCorrect: true,
     lastAnswer: "",
+    pickupsByChallenge: {},
+    askedScoreCheckpoints: {},
   };
 }
 
 function loadGameState() {
   const saved = window.sessionStorage.getItem("cyberRunState");
   if (!saved) return defaultGameState();
-  return { ...defaultGameState(), ...JSON.parse(saved) };
+  try {
+    return normalizeGameState(JSON.parse(saved));
+  } catch {
+    return resetGameState();
+  }
+}
+
+function normalizeGameState(saved) {
+  const state = { ...defaultGameState(), ...(saved || {}) };
+  const maxChallenge = challenges.length - 1;
+  state.score = clampNumber(state.score, 0, 9999);
+  state.lives = clampNumber(state.lives, 0, 3);
+  state.current = clampNumber(state.current, 0, maxChallenge);
+  state.timer = clampNumber(state.timer, 0, missionTime);
+  state.lastCorrect = Boolean(state.lastCorrect);
+  state.lastAnswer = typeof state.lastAnswer === "string" ? state.lastAnswer : "";
+  state.pickupsByChallenge =
+    state.pickupsByChallenge && typeof state.pickupsByChallenge === "object" ? state.pickupsByChallenge : {};
+  state.askedScoreCheckpoints =
+    state.askedScoreCheckpoints && typeof state.askedScoreCheckpoints === "object" ? state.askedScoreCheckpoints : {};
+
+  Object.keys(state.pickupsByChallenge).forEach((key) => {
+    state.pickupsByChallenge[key] = clampNumber(state.pickupsByChallenge[key], 0, 99);
+  });
+  Object.keys(state.askedScoreCheckpoints).forEach((key) => {
+    state.askedScoreCheckpoints[key] = Boolean(state.askedScoreCheckpoints[key]);
+  });
+
+  return state;
+}
+
+function clampNumber(value, min, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return min;
+  return Math.min(max, Math.max(min, Math.floor(number)));
 }
 
 function saveGameState(state) {
@@ -104,5 +140,10 @@ function renderHud(state = loadGameState()) {
   const lives = document.getElementById("lives");
   if (score) score.textContent = state.score;
   if (timer) timer.textContent = formatTime(state.timer);
-  if (lives) lives.textContent = `${state.lives}/3`;
+  if (lives) {
+    const fullHearts = "♥".repeat(state.lives);
+    const emptyHearts = "♡".repeat(3 - state.lives);
+    lives.textContent = `${fullHearts}${emptyHearts}`;
+    lives.setAttribute("aria-label", `${state.lives} lives remaining out of 3`);
+  }
 }

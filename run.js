@@ -1,5 +1,4 @@
 const state = loadGameState();
-state.timer = missionTime;
 saveGameState(state);
 renderHud(state);
 
@@ -9,6 +8,12 @@ const runnerPlayer = document.getElementById("runnerPlayer");
 const emailCard = document.getElementById("emailCard");
 const runnerPickup = document.getElementById("runnerPickup");
 const runPrompt = document.getElementById("runPrompt");
+const jumpButton = document.getElementById("jumpButton");
+
+const gravity = 1850;
+const jumpVelocity = 900;
+const maxSpeedPickupBonus = 5;
+const scoreQuestionInterval = 30;
 
 document.getElementById("emailFrom").textContent = challenge.from;
 document.getElementById("emailSubject").textContent = challenge.subject;
@@ -16,12 +21,13 @@ document.getElementById("emailHeadline").textContent = challenge.headline;
 document.getElementById("bytebotClue").textContent = challenge.clue;
 
 let paused = false;
+let transitioning = false;
 let frameId = null;
 let timerId = null;
 let lastTime = performance.now();
 let jump = 0;
 let velocity = 0;
-let pickups = 0;
+let pickups = getChallengePickups();
 let threatX = Math.min(1040, Math.max(860, runnerRow.clientWidth + 120));
 let pickupX = 420;
 let pickupY = 92;
@@ -34,10 +40,17 @@ runnerRow.style.setProperty("--pickup-y", `${pickupY}px`);
 
 function tickTimer() {
   if (paused) return;
-  state.timer -= 1;
+  state.timer = Math.max(0, state.timer - 1);
   saveGameState(state);
   renderHud(state);
-  if (state.timer <= 0) goToQuestion();
+}
+
+function getChallengePickups() {
+  return Number(state.pickupsByChallenge[state.current] || 0);
+}
+
+function saveChallengePickups() {
+  state.pickupsByChallenge[state.current] = pickups;
 }
 
 function updateRunner(now) {
@@ -47,13 +60,13 @@ function updateRunner(now) {
     return;
   }
 
-  const dt = Math.min(0.034, (now - lastTime) / 1000 || 0);
+  const dt = Math.min(0.024, (now - lastTime) / 1000 || 0);
   lastTime = now;
-  const currentSpeed = speed + pickups * 18 + state.current * 12;
+  const currentSpeed = speed + Math.min(pickups, maxSpeedPickupBonus) * 14 + state.current * 12;
   threatX -= currentSpeed * dt;
   pickupX -= currentSpeed * dt;
   jump += velocity * dt;
-  velocity -= 1850 * dt;
+  velocity -= gravity * dt;
 
   if (jump < 0) {
     jump = 0;
@@ -67,7 +80,14 @@ function updateRunner(now) {
   runnerRow.style.setProperty("--pickup-y", `${pickupY}px`);
 
   if (isCollectingPickup()) collectPickup();
-  if (pickups >= 3 || isHitByThreat()) goToQuestion();
+  if (isHitByThreat()) {
+    goToQuestion();
+    return;
+  }
+  if (shouldAskAtScoreCheckpoint()) {
+    goToQuestion();
+    return;
+  }
 
   if (threatX < -170) {
     threatX = Math.min(900, Math.max(650, runnerRow.clientWidth + 120));
@@ -82,19 +102,20 @@ function updateRunner(now) {
 }
 
 function runnerJump() {
-  if (paused || jump > 8) return;
-  velocity = 980;
+  if (paused || jump > 10) return;
+  velocity = jumpVelocity;
   runnerPlayer.classList.add("jumping");
 }
 
 function collectPickup() {
   if (runnerPickup.classList.contains("collected")) return;
   pickups += 1;
+  saveChallengePickups();
   state.score += 5;
   saveGameState(state);
   renderHud(state);
   runnerPickup.classList.add("collected");
-  runPrompt.textContent = `+5 points collected. ${Math.max(0, 3 - pickups)} more before the cyber choice.`;
+  runPrompt.textContent = "+5 points collected. Questions appear after every 30 points, or if you touch phishing.";
   pickupX = Math.min(780, Math.max(520, runnerRow.clientWidth * 0.52));
   pickupY = pickPickupHeight();
   threatX = Math.max(threatX, runnerRow.clientWidth + 260);
@@ -102,28 +123,79 @@ function collectPickup() {
 }
 
 function pickPickupHeight() {
-  return [78, 98, 118][Math.floor(Math.random() * 3)];
+  return [136, 166, 196][Math.floor(Math.random() * 3)];
 }
 
 function isCollectingPickup() {
-  return rectsOverlap(runnerPlayer.getBoundingClientRect(), runnerPickup.getBoundingClientRect(), 10);
+  return rectsOverlap(getRunnerCollectBox(), shrinkRect(runnerPickup.getBoundingClientRect(), 4), {
+    minX: 12,
+    minY: 12,
+  });
 }
 
 function isHitByThreat() {
-  if (jump > 72) return false;
-  return rectsOverlap(runnerPlayer.getBoundingClientRect(), emailCard.getBoundingClientRect(), 34);
+  return rectsOverlap(getRunnerHitbox(), shrinkRect(emailCard.getBoundingClientRect(), 12), {
+    minX: 14,
+    minY: 14,
+  });
 }
 
-function rectsOverlap(first, second, padding = 0) {
-  return (
-    first.left + padding < second.right &&
-    first.right - padding > second.left &&
-    first.top + padding < second.bottom &&
-    first.bottom - padding > second.top
-  );
+function shouldAskAtScoreCheckpoint() {
+  const checkpoint = nextScoreCheckpoint();
+  if (!checkpoint) return false;
+  state.askedScoreCheckpoints[checkpoint] = true;
+  saveGameState(state);
+  return true;
+}
+
+function nextScoreCheckpoint() {
+  const highestReached = Math.floor(state.score / scoreQuestionInterval) * scoreQuestionInterval;
+  for (let checkpoint = scoreQuestionInterval; checkpoint <= highestReached; checkpoint += scoreQuestionInterval) {
+    if (!state.askedScoreCheckpoints[checkpoint]) return checkpoint;
+  }
+  return 0;
+}
+
+function rectsOverlap(first, second, options = {}) {
+  const minX = options.minX || 1;
+  const minY = options.minY || 1;
+  const overlapX = Math.min(first.right, second.right) - Math.max(first.left, second.left);
+  const overlapY = Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top);
+  return overlapX >= minX && overlapY >= minY;
+}
+
+function getRunnerHitbox() {
+  return shrinkRect(runnerPlayer.getBoundingClientRect(), {
+    left: 54,
+    right: 46,
+    top: 118,
+    bottom: 18,
+  });
+}
+
+function getRunnerCollectBox() {
+  return shrinkRect(runnerPlayer.getBoundingClientRect(), {
+    left: 46,
+    right: 42,
+    top: 72,
+    bottom: 28,
+  });
+}
+
+function shrinkRect(rect, amount) {
+  const inset =
+    typeof amount === "number" ? { left: amount, right: amount, top: amount, bottom: amount } : amount;
+  return {
+    left: rect.left + inset.left,
+    right: rect.right - inset.right,
+    top: rect.top + inset.top,
+    bottom: rect.bottom - inset.bottom,
+  };
 }
 
 function goToQuestion() {
+  if (transitioning) return;
+  transitioning = true;
   window.clearInterval(timerId);
   window.cancelAnimationFrame(frameId);
   saveGameState(state);
@@ -135,12 +207,21 @@ document.getElementById("pauseButton").addEventListener("click", (event) => {
   event.currentTarget.textContent = paused ? "Resume" : "Pause";
   runPrompt.textContent = paused
     ? "Paused. Press Resume to keep running."
-    : "Space = jump. Collect green points. Avoid the red threat.";
+    : "Space or tap = jump. Questions appear after every 30 points, or if you touch phishing.";
 });
 
 document.getElementById("restartButton").addEventListener("click", () => {
   resetGameState();
   window.location.href = "tutorial.html";
+});
+
+jumpButton.addEventListener("pointerdown", (event) => {
+  event.stopPropagation();
+  runnerJump();
+});
+
+runnerRow.addEventListener("pointerdown", () => {
+  runnerJump();
 });
 
 window.addEventListener(

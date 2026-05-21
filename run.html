@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cyber Run | Run</title>
     <link rel="stylesheet" href="styles.css?v=runner17" />
-    <link rel="stylesheet" href="run.css?v=runner17" />
   </head>
   <body>
     <main class="game">
@@ -15,10 +14,10 @@
       <header class="topbar">
         <div class="step-badge">3</div>
         <div><p class="eyebrow">Challenge Appears</p><h1>Cyber Threat</h1></div>
-        <div class="hud">
+        <div class="hud" aria-live="polite">
           <div class="hud-card"><span>Score</span><strong id="score">0</strong></div>
           <div class="hud-card"><span>Timer</span><strong id="timer">0:10</strong></div>
-          <div class="hud-card"><span>Lives</span><strong id="lives">3/3</strong></div>
+          <div class="hud-card lives-card"><span>Lives</span><strong id="lives">♥♥♥</strong></div>
         </div>
         <div class="game-controls">
           <button id="pauseButton" type="button">Pause</button>
@@ -40,7 +39,8 @@
             <button type="button">Verify Account</button>
           </article>
           <div class="runner-pickup" id="runnerPickup" aria-label="Health point pickup">+5</div>
-          <div class="run-prompt" id="runPrompt">Space = jump. Collect green points. Avoid the red threat.</div>
+          <div class="run-prompt" id="runPrompt">Space or tap = jump. Questions appear after every 30 points, or if you touch phishing.</div>
+          <button class="jump-button" id="jumpButton" type="button" aria-label="Jump">Jump</button>
         </div>
         <div class="bot clue-bot" aria-label="ByteBot helper">
           <div class="antenna"></div><div class="bot-head"><span></span><span></span></div><div class="bot-body"></div>

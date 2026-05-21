@@ -6,8 +6,12 @@ renderHud(feedbackState);
 const feedbackBox = document.getElementById("feedbackBox");
 const feedbackTitle = document.getElementById("feedbackTitle");
 const feedbackText = document.getElementById("feedbackText");
+const correctAnswer = document.getElementById("correctAnswer");
 const feedbackCaption = document.getElementById("feedbackCaption");
 const continueButton = document.getElementById("continueButton");
+const correctDecision = decisions.find((decision) => decision.id === feedbackChallenge.correct);
+
+correctAnswer.textContent = `Correct option: ${correctDecision ? correctDecision.label : feedbackChallenge.correct}`;
 
 if (feedbackState.lastCorrect) {
   feedbackBox.classList.remove("wrong");

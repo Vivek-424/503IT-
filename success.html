@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cyber Run | Mission Success</title>
     <link rel="stylesheet" href="styles.css?v=runner17" />
-    <link rel="stylesheet" href="success.css?v=runner17" />
   </head>
   <body>
     <main class="game">
@@ -13,12 +12,12 @@
       <div class="grid-floor" aria-hidden="true"></div>
       <div class="scanline" aria-hidden="true"></div>
       <header class="topbar">
-        <div class="step-badge">7</div>
+        <div class="step-badge">6</div>
         <div><p class="eyebrow">Mission Complete</p><h1>Rewards</h1></div>
-        <div class="hud">
+        <div class="hud" aria-live="polite">
           <div class="hud-card"><span>Score</span><strong id="score">0</strong></div>
           <div class="hud-card"><span>Timer</span><strong id="timer">0:00</strong></div>
-          <div class="hud-card"><span>Lives</span><strong id="lives">3/3</strong></div>
+          <div class="hud-card lives-card"><span>Lives</span><strong id="lives">♥♥♥</strong></div>
         </div>
         <div class="game-controls"><button id="pauseButton" type="button">Pause</button><button id="restartButton" type="button">Restart</button></div>
       </header>
